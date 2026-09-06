@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" href="/icon.ico" type="image/x-icon">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="color-scheme" content="dark" />
+<title>photos</title>
+<style>
+  :root{
+    --bg: #14161a;
+    --bg-raised: #1c1f25;
+    --line: #2a2e36;
+    --ink: #eae7e0;
+    --ink-dim: #8b9099;
+    --accent: #2a2e36;
+    --accent-ink: #14161a;
+    --danger: #c9564f;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sans{ font-family: 'Helvetica Neue', Arial, sans-serif; }
+  button, input{ font-family: inherit; }
+  button:focus-visible, a:focus-visible, .upload-area:focus-within, .photo-card:focus-visible{
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  header.topbar{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 20px;
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  header.topbar h1{ font-size: 26px; font-weight: 500; margin: 0 0 4px; }
+  header.topbar p{ margin:0; font-size: 14px; color: var(--ink-dim); }
+
+  .toggle-btn{
+    font-size: 14px;
+    cursor:pointer;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    padding: 10px 18px;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+  }
+  .toggle-btn:hover{ background: var(--accent); color: var(--accent-ink); }
+
+  .upload-panel{
+    max-height: 0;
+    overflow: hidden;
+    border-bottom: 1px solid transparent;
+    transition: max-height 0.2s ease;
+    background: var(--bg-raised);
+  }
+  .upload-panel.open{ max-height: 420px; border-bottom: 1px solid var(--line); }
+  .upload-panel-inner{
+    padding: 24px 40px 28px;
+    display:flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 480px;
+  }
+  .field label{ display:block; font-size: 13px; color: var(--ink-dim); margin-bottom: 6px; }
+  .field input[type="password"]{
+    width:100%;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 15px;
+  }
+  .field input[type="password"]:focus{
+    outline:none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232,176,75,0.15);
+  }
+  .upload-area{
+    border: 1px dashed var(--line);
+    padding: 16px 18px;
+    font-size: 14px;
+    color: var(--ink-dim);
+    cursor:pointer;
+    display:block;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .upload-area:hover, .upload-area.drag{ border-color: var(--accent); color: var(--ink); }
+  .upload-area input{ display:none; }
+  .upload-actions{ display:flex; align-items:center; gap: 14px; flex-wrap: wrap; }
+  .btn-primary{
+    font-size: 14px;
+    cursor:pointer;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    padding: 10px 20px;
+  }
+  .btn-primary:disabled{ opacity: 0.5; cursor: default; }
+  .status-text{ font-size: 13px; color: var(--ink-dim); }
+  .status-text.error{ color: var(--danger); }
+
+  .gallery{ padding: 32px 40px 100px; }
+
+  .day-group{ margin-bottom: 40px; }
+  .day-group:last-child{ margin-bottom: 0; }
+  .day-header{
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--ink-dim);
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .day-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 18px;
+  }
+
+  .photo-card{
+    position: relative;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+  }
+  .photo-card img{ width:100%; height:100%; object-fit: cover; display:block; }
+  .photo-card .meta{
+    position:absolute; bottom:0; left:0; right:0;
+    padding: 8px 10px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    font-size: 11px;
+    color: #d8d5cd;
+    opacity:0;
+    transition: opacity 0.15s;
+  }
+  .photo-card:hover .meta, .photo-card:focus-within .meta{ opacity:1; }
+
+  .save-btn, .delete-btn{
+    position:absolute;
+    top:8px;
+    width:28px; height:28px;
+    background: rgba(20,22,26,0.85);
+    border: 1px solid var(--line);
+    color: var(--ink-dim);
+    cursor:pointer;
+    font-size:14px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .save-btn{ left:8px; }
+  .delete-btn{ right:8px; }
+  .save-btn:hover, .save-btn:focus-visible{ color: var(--ink); border-color: var(--ink-dim); }
+  .delete-btn:hover, .delete-btn:focus-visible{ color: var(--danger); border-color: var(--danger); }
+
+  .empty-state{ text-align:center; padding: 90px 20px; color: var(--ink-dim); font-size:14px; }
+
+  .lightbox{
+    position:fixed; inset:0;
+    background: rgba(10,11,13,0.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding: 40px;
+    z-index: 100;
+  }
+  .lightbox.open{ display:flex; }
+  .lightbox img{ max-width:100%; max-height:100%; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .lightbox-close{
+    position:absolute; top:20px; right:28px;
+    background:none; border:none;
+    color: var(--ink);
+    font-size: 28px;
+    cursor:pointer;
+    line-height:1;
+  }
+
+  @media (max-width: 600px){
+    header.topbar, .upload-panel-inner, .gallery{ padding-left:20px; padding-right:20px; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div>
+      <h1>camera roll</h1>
+      <p class="sans">shot on sony dsc s85</p>
+    </div>
+    <button class="toggle-btn sans" id="toggle-upload-btn" type="button">if your not cruz ignore this</button>
+  </header>
+
+  <div class="upload-panel" id="upload-panel">
+    <div class="upload-panel-inner">
+      <div class="field">
+        <label class="sans" for="password-input">password</label>
+        <input type="password" id="password-input" autocomplete="off" />
+      </div>
+      <label class="upload-area sans" id="upload-area" tabindex="0">
+        <span id="upload-area-text">click to upload</span>
+        <input type="file" id="file-input" accept="image/*" multiple />
+      </label>
+      <div class="upload-actions">
+        <button class="btn-primary sans" id="upload-btn" type="button">upload</button>
+        <span class="status-text sans" id="upload-status"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="gallery" id="gallery">
+    <div class="empty-state sans" id="empty-state">Loading photos…</div>
+  </div>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo preview">
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">×</button>
+    <img id="lightbox-img" src="" alt="" />
+  </div>
+
+<script>
+  const toggleBtn = document.getElementById('toggle-upload-btn');
+  const uploadPanel = document.getElementById('upload-panel');
+  const passwordInput = document.getElementById('password-input');
+  const uploadArea = document.getElementById('upload-area');
+  const uploadAreaText = document.getElementById('upload-area-text');
+  const fileInput = document.getElementById('file-input');
+  const uploadBtn = document.getElementById('upload-btn');
+  const uploadStatus = document.getElementById('upload-status');
+  const gallery = document.getElementById('gallery');
+  const emptyState = document.getElementById('empty-state');
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  const lightboxClose = document.getElementById('lightbox-close');
+
+  // Captured so JS resets go back to *your* custom copy instead of generic defaults
+  const toggleBtnDefaultLabel = toggleBtn.textContent;
+  const uploadAreaDefaultText = uploadAreaText.textContent;
+
+  let cachedPassword = '';
+  let pendingFiles = [];
+
+  // ---- Upload panel toggle ----
+  toggleBtn.addEventListener('click', () => {
+    const isOpen = uploadPanel.classList.toggle('open');
+    toggleBtn.textContent = isOpen ? 'Close' : toggleBtnDefaultLabel;
+    if (isOpen) {
+      passwordInput.value = cachedPassword;
+      passwordInput.focus();
+    }
+  });
+
+  // ---- Dropzone ----
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('drag'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag'));
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag');
+    setPendingFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => setPendingFiles(e.target.files));
+
+  function setPendingFiles(fileList) {
+    pendingFiles = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    uploadAreaText.textContent = pendingFiles.length
+      ? `${pendingFiles.length} photo${pendingFiles.length === 1 ? '' : 's'} ready`
+      : uploadAreaDefaultText;
+  }
+
+  // ---- EXIF "date taken" extraction (JPEG only) ----
+  // Reads the first 128KB of the file — plenty to reach the APP1/Exif block
+  // without loading the whole photo. Canvas strips EXIF entirely, so this
+  // has to run on the original file before resizeToBlob() touches it.
+  async function getExifDateTaken(file) {
+    try {
+      const buffer = await file.slice(0, 128 * 1024).arrayBuffer();
+      const view = new DataView(buffer);
+      if (view.getUint16(0, false) !== 0xffd8) return null; // not a JPEG
+
+      let offset = 2;
+      while (offset + 4 <= view.byteLength) {
+        const marker = view.getUint16(offset, false);
+        offset += 2;
+        if ((marker & 0xff00) !== 0xff00) break;
+        if (marker === 0xffda) break; // start of scan — no more metadata follows
+
+        const segLength = view.getUint16(offset, false);
+        if (marker === 0xffe1) {
+          const exifStart = offset + 2;
+          if (view.getUint32(exifStart, false) === 0x45786966) { // "Exif"
+            const tiffStart = exifStart + 6;
+            const little = view.getUint16(tiffStart, false) === 0x4949;
+            const firstIFDOffset = view.getUint32(tiffStart + 4, little);
+            const dateStr = readIFDForDate(view, tiffStart, tiffStart + firstIFDOffset, little);
+            if (dateStr) return parseExifDate(dateStr);
+          }
+        }
+        offset += segLength;
+      }
+    } catch (e) {
+      // malformed or unreadable — fall back to upload date
+    }
+    return null;
+  }
+
+  function readIFDForDate(view, tiffStart, ifdOffset, little) {
+    const numEntries = view.getUint16(ifdOffset, little);
+    let exifSubIFDOffset = null;
+    let plainDateTime = null;
+    for (let i = 0; i < numEntries; i++) {
+      const entryOffset = ifdOffset + 2 + i * 12;
+      const tag = view.getUint16(entryOffset, little);
+      if (tag === 0x8769) exifSubIFDOffset = tiffStart + view.getUint32(entryOffset + 8, little);
+      if (tag === 0x0132) plainDateTime = readAsciiValue(view, tiffStart, entryOffset, little);
+    }
+    if (exifSubIFDOffset != null) {
+      const subEntries = view.getUint16(exifSubIFDOffset, little);
+      for (let i = 0; i < subEntries; i++) {
+        const entryOffset = exifSubIFDOffset + 2 + i * 12;
+        const tag = view.getUint16(entryOffset, little);
+        if (tag === 0x9003 || tag === 0x9004) { // DateTimeOriginal, then DateTimeDigitized
+          const val = readAsciiValue(view, tiffStart, entryOffset, little);
+          if (val) return val;
+        }
+      }
+    }
+    return plainDateTime;
+  }
+
+  function readAsciiValue(view, tiffStart, entryOffset, little) {
+    const type = view.getUint16(entryOffset + 2, little);
+    const count = view.getUint32(entryOffset + 4, little);
+    if (type !== 2 || count < 1) return null; // type 2 = ASCII
+    const valueOffset = count > 4 ? tiffStart + view.getUint32(entryOffset + 8, little) : entryOffset + 8;
+    let str = '';
+    for (let i = 0; i < count - 1; i++) str += String.fromCharCode(view.getUint8(valueOffset + i));
+    return str;
+  }
+
+  function parseExifDate(str) {
+    const m = str.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s] = m;
+    const t = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)).getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+
+  // ---- Resize in-browser before upload (keeps files small, fixes phone-photo rotation) ----
+  async function resizeToBlob(file, maxDimension = 1600, quality = 0.85) {
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch (e) {
+      bitmap = await createImageBitmap(file);
+    }
+    let { width, height } = bitmap;
+    if (width > maxDimension || height > maxDimension) {
+      const scale = maxDimension / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    if (bitmap.close) bitmap.close();
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Could not process image')), 'image/jpeg', quality);
+    });
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    const password = passwordInput.value;
+    if (!password) { setStatus('Enter the password first.', true); return; }
+    if (pendingFiles.length === 0) { setStatus('Choose at least one photo.', true); return; }
+
+    uploadBtn.disabled = true;
+    let uploaded = 0;
+    let sawAuthError = false;
+
+    for (const file of pendingFiles) {
+      setStatus(`Uploading ${uploaded + 1} / ${pendingFiles.length}…`);
+      try {
+        const dateTaken = await getExifDateTaken(file);
+        const blob = await resizeToBlob(file);
+        const headers = {
+          'X-Upload-Password': password,
+          'X-File-Name': encodeURIComponent(file.name),
+        };
+        if (dateTaken) headers['X-Date-Taken'] = String(dateTaken);
+
+        const res = await fetch('/api/upload', { method: 'POST', headers, body: blob });
+        if (res.status === 401) { sawAuthError = true; break; }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Upload failed');
+        }
+        uploaded++;
+      } catch (err) {
+        setStatus(`Stopped: ${err.message}`, true);
+        uploadBtn.disabled = false;
+        return;
+      }
+    }
+
+    uploadBtn.disabled = false;
+
+    if (sawAuthError) { setStatus('Incorrect password.', true); return; }
+
+    cachedPassword = password;
+    setStatus(`Uploaded ${uploaded} photo${uploaded === 1 ? '' : 's'}.`);
+    pendingFiles = [];
+    uploadAreaText.textContent = uploadAreaDefaultText;
+    fileInput.value = '';
+    loadPhotos();
+  });
+
+  function setStatus(text, isError = false) {
+    uploadStatus.textContent = text;
+    uploadStatus.classList.toggle('error', isError);
+  }
+
+  // ---- Gallery (public, no auth) ----
+  async function loadPhotos() {
+    try {
+      const res = await fetch('/api/photos');
+      if (!res.ok) throw new Error('Could not load photos');
+      const photos = await res.json();
+      renderGallery(photos);
+    } catch (err) {
+      emptyState.textContent = 'Could not load photos. Try refreshing.';
+      emptyState.style.display = 'block';
+    }
+  }
+
+  function dayKey(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  function groupByDay(photos) {
+    const groups = [];
+    let currentKey = null;
+    let currentGroup = null;
+    for (const p of photos) {
+      const ts = p.dateTaken || p.uploadedAt || 0;
+      const key = dayKey(ts);
+      if (key !== currentKey) {
+        currentGroup = { date: new Date(ts), photos: [] };
+        groups.push(currentGroup);
+        currentKey = key;
+      }
+      currentGroup.photos.push(p);
+    }
+    return groups;
+  }
+
+  function formatDayHeader(date) {
+    return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function renderGallery(photos) {
+    gallery.querySelectorAll('.day-group').forEach(el => el.remove());
+
+    if (!photos.length) {
+      emptyState.textContent = 'No photos yet. Tap “Add photos” to upload the first one.';
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    const groups = groupByDay(photos);
+
+    for (const group of groups) {
+      const section = document.createElement('div');
+      section.className = 'day-group';
+
+      const header = document.createElement('h2');
+      header.className = 'day-header sans';
+      header.textContent = formatDayHeader(group.date);
+      section.appendChild(header);
+
+      const grid = document.createElement('div');
+      grid.className = 'day-grid';
+
+      for (const p of group.photos) {
+        grid.appendChild(buildPhotoCard(p));
+      }
+
+      section.appendChild(grid);
+      gallery.appendChild(section);
+    }
+  }
+
+  function buildPhotoCard(p) {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `View ${p.name || 'photo'} full size`);
+
+    const img = document.createElement('img');
+    img.src = `/api/photo?id=${encodeURIComponent(p.id)}`;
+    img.alt = p.name || 'photo';
+    img.loading = 'lazy';
+    card.appendChild(img);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta sans';
+    meta.textContent = p.name || 'photo';
+    card.appendChild(meta);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-btn';
+    saveBtn.type = 'button';
+    saveBtn.textContent = '⬇';
+    saveBtn.title = 'Save photo';
+    saveBtn.setAttribute('aria-label', `Save ${p.name || 'photo'}`);
+    saveBtn.addEventListener('click', (e) => { e.stopPropagation(); savePhoto(p.id, p.name); });
+    card.appendChild(saveBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.type = 'button';
+    delBtn.textContent = '×';
+    delBtn.title = 'Delete photo';
+    delBtn.setAttribute('aria-label', `Delete ${p.name || 'photo'}`);
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); deletePhoto(p.id); });
+    card.appendChild(delBtn);
+
+    card.addEventListener('click', () => openLightbox(img.src, img.alt));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target === card) openLightbox(img.src, img.alt);
+    });
+
+    return card;
+  }
+
+  // ---- Save (best effort: native share sheet on phones, plain download elsewhere) ----
+  async function savePhoto(id, name) {
+    const fileName = (name || 'photo').replace(/\.[^/.]+$/, '') + '.jpg';
+    let blob;
+    try {
+      const res = await fetch(`/api/photo?id=${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error('fetch failed');
+      blob = await res.blob();
+    } catch (err) {
+      alert('Could not load that photo to save it.');
+      return;
+    }
+
+    const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return; // user backed out of the share sheet
+        // otherwise fall through to a plain download
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function deletePhoto(id) {
+    let password = cachedPassword;
+    if (!password) {
+      password = prompt('Password to delete this photo:') || '';
+      if (!password) return;
+    }
+    if (!confirm('Delete this photo?')) return;
+
+    try {
+      const res = await fetch('/api/delete-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Upload-Password': password },
+        body: JSON.stringify({ id }),
+      });
+      if (res.status === 401) { alert('Incorrect password.'); return; }
+      if (!res.ok) throw new Error('Delete failed');
+      cachedPassword = password;
+      loadPhotos();
+    } catch (err) {
+      alert('Could not delete that photo.');
+    }
+  }
+
+  // ---- Lightbox ----
+  function openLightbox(src, alt) {
+    lightboxImg.src = src;
+    lightboxImg.alt = alt;
+    lightbox.classList.add('open');
+    lightboxClose.focus();
+  }
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightboxImg.src = '';
+  }
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+  loadPhotos();
+</script>
+</body>
+</html>
